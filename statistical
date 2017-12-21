@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+
+from __future__ import print_function
+
+import re
+import statistics
+from math import log10, floor
+
+def round_to_significant_digits(x, n):
+  return round(x, -int(floor(log10(abs(x)))) + (n - 1))
+
+class NumberGroup:
+  def __init__(self):
+    self.raw_numbers = []
+
+  def add(self, n):
+    self.raw_numbers.append(n)
+    return self
+
+  @property
+  def numbers(self):
+    return [float(x) for x in self.raw_numbers]
+
+  @classmethod
+  def single(cls, n):
+    return NumberGroup().add(n)
+
+  def first(self):
+    return self.raw_numbers[0]
+
+  def are_identical(self):
+    f = self.first()
+    return all([x == f for x in self.raw_numbers])
+
+def parse_numbers(s):
+  def _parse_numbers(s):
+    m = re.search(b"[0-9.]+", s)
+    if m is None:
+      return [(True, s)]
+    prefix = s[:m.start()]
+    number = m.group(0)
+    return [(False, prefix), (True, number)] + _parse_numbers(s[m.end():])
+  return [s for s in _parse_numbers(s) if s[1] != ""]
+
+if __name__ == "__main__":
+  import argparse
+  import subprocess
+
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--iters",
+                      type=int,
+                      default=1,
+                      help="number of iterations to run command")
+  parser.add_argument("--mean-digits",
+                      type=int,
+                      default=3,
+                      help="number of significant digits to print means to")
+  parser.add_argument("--std-digits",
+                      type=int,
+                      default=2,
+                      help="number of significant digits to print standard deviation to")
+
+  args, command_args = parser.parse_known_args()
+
+  template = parse_numbers(subprocess.check_output(command_args))
+
+  aggregated = [NumberGroup.single(x) if isnumber else x
+                for (isnumber, x) in template]
+
+  for _ in range(args.iters-1):
+    output = parse_numbers(subprocess.check_output(command_args))
+    for i, (isnumber, seg) in enumerate(output):
+      tisnumber, tseg = template[i]
+      aggregate = aggregated[i]
+      if tisnumber:
+        if isnumber:
+          aggregated[i].add(seg)
+        else:
+          print("unexpected string\n{}".format(seg))
+      else:
+        if tseg != seg:
+          print("unexpected output\n\n{}\n\nexpecting\n{}\n".format(seg, tseg))
+
+  for seg in aggregated:
+    if type(seg) == NumberGroup:
+      if seg.are_identical():
+        print(seg.first().decode("utf-8"), end="")
+        continue
+      mean = round_to_significant_digits(statistics.mean(seg.numbers), args.mean_digits)
+      stddev = round_to_significant_digits(statistics.stdev(seg.numbers), args.std_digits)
+      print("{}±{}".format(mean, stddev), end="")
+    else:
+      print(seg.decode("utf-8"), end="")
