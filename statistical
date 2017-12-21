@@ -55,6 +55,7 @@ class CommandRunner:
     if self.output:
       self.output.write(out)
       self.output.write(b"\n" + b"-" * 10 + b"\n")
+      self.output.flush()
     return out
 
   def close(self):
