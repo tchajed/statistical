@@ -62,7 +62,7 @@ class CommandRunner:
     if self.output:
       self.output.write(
         json.dumps({"cmd": self.cmd,
-                    "iterations:": self.num_runs}).encode('utf-8'))
+                    "iters": self.num_runs}).encode('utf-8'))
       self.output.close()
 
 
@@ -123,6 +123,8 @@ if __name__ == "__main__":
       metadata, outputs = CommandRunner.parse(f)
     command_args = metadata['cmd']
     runner = CommandReplayer(command_args, outputs)
+    if args.iters == 1:
+      args.iters = metadata['iters']
   else:
     output_file = None
     if args.output:
