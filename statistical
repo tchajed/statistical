@@ -5,6 +5,7 @@ from __future__ import print_function
 import re
 import statistics
 from math import log10, floor
+import json
 
 def round_to_significant_digits(x, n):
   return round(x, -int(floor(log10(abs(x)))) + (n - 1))
@@ -56,6 +57,40 @@ class CommandRunner:
       self.output.write(b"\n" + b"-" * 10 + b"\n")
     return out
 
+  def close(self):
+    if self.output:
+      self.output.write(
+        json.dumps({"cmd": self.cmd,
+                    "iterations:": self.num_runs}).encode('utf-8'))
+      self.output.close()
+
+
+  @classmethod
+  def parse(self, f):
+    outputs = []
+    lines = []
+    for line in f:
+      if line == b"-" * 10 + b"\n":
+        outputs.append(b"".join(lines))
+        lines = []
+      else:
+        lines.append(line)
+    metadata_blob = b"\n".join(lines).decode("utf-8")
+    metadata = json.loads(metadata_blob)
+    return metadata, outputs
+
+class CommandReplayer:
+  def __init__(self, cmd, outputs):
+    self.cmd = cmd
+    self.outputs = outputs
+    self.num_runs = len(outputs)
+
+  def run(self):
+    return self.outputs.pop(0)
+
+  def close(self):
+    pass
+
 if __name__ == "__main__":
   import argparse
   import subprocess
@@ -68,6 +103,9 @@ if __name__ == "__main__":
   parser.add_argument("-o", "--output",
                       default=None,
                       help="file to store captured output")
+  parser.add_argument("-i", "--input",
+                      default=None,
+                      help="file with previous outputs to load")
   parser.add_argument("--mean-digits",
                       type=int,
                       default=3,
@@ -78,10 +116,17 @@ if __name__ == "__main__":
                       help="number of significant digits to print standard deviation to")
 
   args, command_args = parser.parse_known_args()
-  output_file = None
-  if args.output:
-    output_file = open(args.output, "wb")
-  runner = CommandRunner(command_args, output_file)
+
+  if args.input:
+    with open(args.input, 'rb') as f:
+      metadata, outputs = CommandRunner.parse(f)
+    command_args = metadata['cmd']
+    runner = CommandReplayer(command_args, outputs)
+  else:
+    output_file = None
+    if args.output:
+      output_file = open(args.output, "wb")
+    runner = CommandRunner(command_args, output_file)
 
   template = parse_numbers(runner.run())
   aggregated = [NumberGroup.single(x) if isnumber else x
@@ -100,6 +145,7 @@ if __name__ == "__main__":
       else:
         if tseg != seg:
           print("unexpected output\n\n{}\n\nexpecting\n{}\n".format(seg, tseg))
+  runner.close()
 
   for seg in aggregated:
     if type(seg) == NumberGroup:
@@ -111,4 +157,5 @@ if __name__ == "__main__":
       print("{}±{}".format(mean, stddev), end="")
     else:
       print(seg.decode("utf-8"), end="")
-  print("statistical: {} runs".format(runner.num_runs))
+  print("statistical:")
+  print("{}\n{} runs".format(" ".join(runner.cmd), runner.num_runs))
