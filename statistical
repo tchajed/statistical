@@ -43,27 +43,41 @@ def parse_numbers(s):
     return [(False, prefix), (True, number)] + _parse_numbers(s[m.end():])
   return [s for s in _parse_numbers(s) if s[1] != ""]
 
+class NullFile:
+  def write(self, d):
+    pass
+
+  def flush(self):
+    pass
+
+  def close(self):
+    pass
+
 class CommandRunner:
   def __init__(self, cmd, output):
     self.cmd = cmd
-    self.output = output
+    self.output = output or NullFile()
     self.num_runs = 0
+    self._print_header()
+
+  def _print_header(self):
+    self.output.write(
+      json.dumps({"cmd": self.cmd}).encode('utf-8'))
+    self.separator()
+
+  def separator(self):
+    self.output.write(b"\n" + b"-" * 10 + b"\n")
+    self.output.flush()
 
   def run(self):
     out = subprocess.check_output(self.cmd)
     self.num_runs += 1
-    if self.output:
-      self.output.write(out)
-      self.output.write(b"\n" + b"-" * 10 + b"\n")
-      self.output.flush()
+    self.output.write(out)
+    self.separator()
     return out
 
   def close(self):
-    if self.output:
-      self.output.write(
-        json.dumps({"cmd": self.cmd,
-                    "iters": self.num_runs}).encode('utf-8'))
-      self.output.close()
+    self.output.close()
 
 
   @classmethod
@@ -76,7 +90,10 @@ class CommandRunner:
         lines = []
       else:
         lines.append(line)
-    metadata_blob = b"\n".join(lines).decode("utf-8")
+    if lines:
+      print("unexpected data after last output:")
+      print("".join(lines))
+    metadata_blob = outputs.pop(0).decode("utf-8")
     metadata = json.loads(metadata_blob)
     return metadata, outputs
 
@@ -124,7 +141,7 @@ if __name__ == "__main__":
     command_args = metadata['cmd']
     runner = CommandReplayer(command_args, outputs)
     if args.iters == 1:
-      args.iters = metadata['iters']
+      args.iters = len(outputs)
   else:
     output_file = None
     if args.output:
