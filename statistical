@@ -111,6 +111,11 @@ class CommandReplayer:
   def close(self):
     pass
 
+def format_s(total_s):
+  minutes = total_s//60
+  seconds = total_s%60
+  return "{:2d}:{:02d}".format(minutes, seconds)
+
 class TimeEstimator:
   def __init__(self, total_runs):
     self.estimates = []
@@ -139,9 +144,9 @@ class TimeEstimator:
     return remaining_runs * time_per_run
 
   def estimate_report(self):
-    return "{:5.0f}s elapsed {:5.0f}s remaining".format(
-      estimator.elapsed_s(),
-      estimator.remaining_s())
+    return "{} elapsed {}s remaining".format(
+      format_s(estimator.elapsed_s()),
+      format_s(estimator.remaining_s()))
 
 if __name__ == "__main__":
   import argparse
