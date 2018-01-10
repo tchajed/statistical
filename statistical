@@ -112,9 +112,9 @@ class CommandReplayer:
     pass
 
 def format_s(total_s):
-  minutes = total_s//60
+  minutes = int(total_s)//60
   seconds = total_s%60
-  return "{:2d}:{:02d}".format(minutes, seconds)
+  return "{:2d}:{:02d}".format(minutes, int(seconds))
 
 class TimeEstimator:
   def __init__(self, total_runs):
@@ -135,16 +135,22 @@ class TimeEstimator:
   def timer(self):
     return TimeEstimator.Timer(self)
 
+  @property
+  def completed_runs(self):
+    return len(self.estimates)
+
   def elapsed_s(self):
     return sum(self.estimates)
 
   def remaining_s(self):
     time_per_run = sum(self.estimates)/len(self.estimates)
-    remaining_runs = self.total_runs - len(self.estimates)
+    remaining_runs = self.total_runs - self.completed_runs
     return remaining_runs * time_per_run
 
   def estimate_report(self):
-    return "{} elapsed {}s remaining".format(
+    return "{:2d}/{:d} runs {} elapsed {} remaining".format(
+      self.completed_runs,
+      self.total_runs,
       format_s(estimator.elapsed_s()),
       format_s(estimator.remaining_s()))
 
