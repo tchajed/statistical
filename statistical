@@ -6,6 +6,8 @@ import re
 import statistics
 from math import log10, floor
 import json
+import sys
+import time
 
 def round_to_significant_digits(x, n):
   return round(x, -int(floor(log10(abs(x)))) + (n - 1))
@@ -109,6 +111,38 @@ class CommandReplayer:
   def close(self):
     pass
 
+class TimeEstimator:
+  def __init__(self, total_runs):
+    self.estimates = []
+    self.total_runs = total_runs
+
+  class Timer:
+    def __init__(self, estimator):
+      self.estimator = estimator
+
+    def __enter__(self):
+      self.start = time.time()
+
+    def __exit__(self, _type, _value, _traceback):
+      elapsed = time.time() - self.start
+      self.estimator.estimates.append(elapsed)
+
+  def timer(self):
+    return TimeEstimator.Timer(self)
+
+  def elapsed_s(self):
+    return sum(self.estimates)
+
+  def remaining_s(self):
+    time_per_run = sum(self.estimates)/len(self.estimates)
+    remaining_runs = self.total_runs - len(self.estimates)
+    return remaining_runs * time_per_run
+
+  def estimate_report(self):
+    return "{:5.0f}s elapsed {:5.0f}s remaining".format(
+      estimator.elapsed_s(),
+      estimator.remaining_s())
+
 if __name__ == "__main__":
   import argparse
   import subprocess
@@ -148,12 +182,19 @@ if __name__ == "__main__":
       output_file = open(args.output, "wb")
     runner = CommandRunner(command_args, output_file)
 
-  template = parse_numbers(runner.run())
+  estimator = TimeEstimator(args.iters)
+  with estimator.timer():
+    template = parse_numbers(runner.run())
+  print(estimator.estimate_report(), end="", file=sys.stderr)
+  sys.stderr.flush()
   aggregated = [NumberGroup.single(x) if isnumber else x
                 for (isnumber, x) in template]
 
   for _ in range(args.iters-1):
-    output = parse_numbers(runner.run())
+    with estimator.timer():
+      output = parse_numbers(runner.run())
+    print("\r" + estimator.estimate_report(), end="", file=sys.stderr)
+    sys.stderr.flush()
     for i, (isnumber, seg) in enumerate(output):
       tisnumber, tseg = template[i]
       aggregate = aggregated[i]
@@ -165,6 +206,7 @@ if __name__ == "__main__":
       else:
         if tseg != seg:
           print("unexpected output\n\n{}\n\nexpecting\n{}\n".format(seg, tseg))
+  print("", file=sys.stderr)
   runner.close()
 
   for seg in aggregated:
