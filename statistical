@@ -177,6 +177,9 @@ if __name__ == "__main__":
                       type=int,
                       default=2,
                       help="number of significant digits to print standard deviation to")
+  parser.add_argument("-s", "--order-stats",
+                      action="store_true",
+                      help="report order statistics")
 
   args, command_args = parser.parse_known_args()
 
@@ -232,7 +235,13 @@ if __name__ == "__main__":
         continue
       mean = round_to_significant_digits(statistics.mean(seg.numbers), args.mean_digits)
       stddev = round_to_significant_digits(statistics.stdev(seg.numbers), args.std_digits)
-      print("{}±{}".format(mean, stddev), end="")
+      p0 = round_to_significant_digits(min(seg.numbers), args.std_digits)
+      p50 = round_to_significant_digits(statistics.median(seg.numbers), args.std_digits)
+      p100 = round_to_significant_digits(max(seg.numbers), args.std_digits)
+      if args.order_stats:
+        print("{} [{}, {}]".format(p50, p0, p100), end="")
+      else:
+        print("{}±{}".format(mean, stddev), end="")
     else:
       print(seg.decode("utf-8"), end="")
   print("statistical:")
