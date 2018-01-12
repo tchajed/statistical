@@ -222,7 +222,7 @@ if __name__ == "__main__":
         else:
           print("unexpected string\n{}".format(seg))
       else:
-        if tseg != seg:
+        if re.sub(b"\s+", b" ", tseg) != re.sub(b"\s+", b" ", seg):
           print("unexpected output\n\n{}\n\nexpecting\n{}\n".format(seg, tseg))
   if time_estimates:
     print("", file=sys.stderr)
