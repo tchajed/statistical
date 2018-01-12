@@ -236,7 +236,7 @@ if __name__ == "__main__":
       mean = round_to_significant_digits(statistics.mean(seg.numbers), args.mean_digits)
       stddev = round_to_significant_digits(statistics.stdev(seg.numbers), args.std_digits)
       p0 = round_to_significant_digits(min(seg.numbers), args.std_digits)
-      p50 = round_to_significant_digits(statistics.median(seg.numbers), args.std_digits)
+      p50 = round_to_significant_digits(statistics.median(seg.numbers), args.mean_digits)
       p100 = round_to_significant_digits(max(seg.numbers), args.std_digits)
       if args.order_stats:
         print("{} [{}, {}]".format(p50, p0, p100), end="")
